@@ -2,15 +2,15 @@ var sweetp = require('./lib/sweetp');
 
 service = {
 	getConfig:function() {
-		var config = {
-			'password/manager/get':{
+		var config = [{
+			'/password/manager/get':{
 				method:'get',
 				params: {
 					name: 'one'
 				}
 			}
-		};
-		return JSON.stringify(config);
+		}];
+		return config;
 	},
 
 	get:function(params) {
