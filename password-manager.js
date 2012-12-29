@@ -1,27 +1,24 @@
 var sweetp = require('./lib/sweetp');
 var http = require('http');
 
-var service, client;
+var service, methods, client;
 
 service = {
-	getConfig:function() {
-		var config = [{
-			'/password/manager/get':{
-				method:'get',
-				params: {
-					name: 'one'
-				}
+	get:{
+		options: {
+			params: {
+				name: 'one'
 			}
-		}];
-		return config;
-	},
-
-	get:function(params) {
-		return "test " + params.name;
+		},
+		target:'/password/manager/get',
+		fn:function(params) {
+			return "test " + params.name;
+		}
 	}
 };
 
-client = sweetp.start(service);
+methods = sweetp.createMethods(service);
+client = sweetp.start(methods);
 
 process.once('SIGUSR2', function() {
 	console.log('Got a SIGUSR2');
