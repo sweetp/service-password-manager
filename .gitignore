@@ -23,3 +23,4 @@ ivy
 
 # sweetp
 .sweetp/cli.json
+node_modules

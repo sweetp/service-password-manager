@@ -1,0 +1,12 @@
+{
+	"name": "sweetp-password-manager",
+	"version": "0.0.1",
+	"description": "Password management for Sweetp.",
+	"author": "Stefan Gojan <vollekannehoschi@gmail.com>",
+	"dependencies": {
+		"bcrypt": ">=0.5",
+		"ezcrypto":"*"
+	},
+	"engines": { "node" : ">=0.6" }
+}
+
