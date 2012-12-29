@@ -1,4 +1,7 @@
 var sweetp = require('./lib/sweetp');
+var http = require('http');
+
+var service, client;
 
 service = {
 	getConfig:function() {
@@ -18,26 +21,20 @@ service = {
 	}
 };
 
-sweetp.start(service);
+client = sweetp.start(service);
 
-    // spawn command line command
-/*
- *    var ls    = spawn('git', ['status']);
- *
- *    ls.stdout.on('data', function (data) {
- *        sys.print(data);
- *        con.write(data);
- *    });
- *
- *    ls.stderr.on('data', function (data) {
- *        sys.print('stderr: ' + data);
- *        con.write('stderr: ' + data);
- *    });
- *
- *    ls.on('exit', function (code) {
- *        console.log('child process exited with code ' + code);
- *        con.write('child process exited with code ' + code);
- *        con.destroy();
- *    });
- */
+process.once('SIGUSR2', function() {
+	console.log('Got a SIGUSR2');
+	client.closeSocket();
+	http.get({
+		host:'localhost',
+		port:7777,
+		path:'/services/foo/password/manager/get'
+	}, function() {
+		console.log('http request finished');
+		process.kill(process.pid, 'SIGUSR2');
+	}).on('error', function(e) {
+		console.log("Got error: " + e.message);
+	});
+});
 
