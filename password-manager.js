@@ -5,14 +5,14 @@ var bcrypt = require('bcrypt');
 var fs = require('fs');
 var path = require('path');
 
-var
 
 /**
  * {Object} service methods with sweetp meta data
  * @private
  */
-service,
-methods, client, salt, passwords, master;
+var service;
+
+var methods, client, salt, passwords, master;
 
 // init
 salt = bcrypt.genSaltSync(10);
@@ -50,6 +50,14 @@ function getDataFromFile(dataPath, callback) {
 	});
 }
 
+function updatePasswordSafe(config) {
+	var masterHash, masterPassword, passwords;
+	masterPassword = master[config.name];
+	masterHash = bcrypt.hashSync(masterPassword, salt);
+	dataPath = getDataPath(config);
+	passwords = passwords[config.name];
+	fs.writeFileSync(dataPath, JSON.stringify({master:masterHash, passwords:passwords}), 'utf-8');
+}
 
 // public service functions
 service = {
@@ -61,12 +69,8 @@ service = {
 			}
 		},
 		fn:function(params) {
-			var masterHash, masterPassword;
-			master[params.config.name] = masterPassword = getMasterPasswordFromUser(params.url);
-			masterHash = bcrypt.hashSync(masterPassword, salt);
-			dataPath = getDataPath(params.config);
-			passwords[params.config.name] = {};
-			fs.writeFileSync(dataPath, JSON.stringify({master:masterHash, passwords:{}}), 'utf-8');
+			master[params.config.name] = getMasterPasswordFromUser(params.url);
+			updatePasswordSafe(params.config);
 			return "Password safe created successfully.";
 		}
 	},
@@ -86,14 +90,26 @@ service = {
 	set:{
 		options: {
 			params: {
-				name: 'one',
-				user: 'one',
+				key: 'one',
+				username: 'one',
 				password: 'one',
 				config: 'projectConfig'
 			}
 		},
 		fn:function(params) {
+			var masterPassword;
 
+			if (!master[params.config.name]) {
+				throw new Error("Not authenticated, call authenticate service method to encrypt password safe for this project.");
+			}
+			masterPassword = master[params.config.name];
+
+			value = {};
+			value.username = Crypto.AES.encrypt(params.username, masterPassword);
+			value.password = Crypto.AES.encrypt(params.password, masterPassword);
+
+			passwords[params.config.name][params.key] = value;
+			updatePasswordSafe(params.config);
 		}
 	},
 
