@@ -25,3 +25,4 @@ ivy
 .sweetp/cli.json
 node_modules
 sweetptest
+tags
