@@ -40,13 +40,23 @@ function refreshPasswords(err, project, dir, callback) {
 
 	// TODO check modified date from file
 	if (passwordsCache[project] && masterHashCache[project]) {
+		console.log("Return cached passwords.");
 		return callback(null, {
 			passwords:passwordsCache[project],
 			master:masterHashCache[project]
 		});
 	}
 
-	return getDataFromFile(null, dir, callback);
+	console.log("Read passwords from file and cache it.");
+	return getDataFromFile(null, dir, function(err, data) {
+		if (err) return callback(err);
+
+		// refresh cache
+		passwordsCache[project] = data.passwords;
+		masterHashCache[project] = data.master;
+
+		return callback(null, data);
+	});
 }
 
 function getDataFromFile(err, dir, callback) {
@@ -190,11 +200,6 @@ service = {
 				// try to safe passwords
 				updatePasswordSafe(params.config.dir, project, data.passwords);
 
-				// refresh cache
-				master[project] = masterPassword;
-				passwordsCache[project] = data.passwords;
-				masterHashCache[project] = data.master;
-
 				callback(null, "Credentials saved for key " + params.key + ".");
 			});
 		}
@@ -222,9 +227,9 @@ service = {
 				}
 
 				// refresh cache
+				// TODO set timeout to remove master password from memory
 				master[project] = masterPassword;
-				passwordsCache[project] = data.passwords;
-				masterHashCache[project] = data.master;
+
 
 				return callback(null, 'authenticated');
 			});
