@@ -151,14 +151,14 @@ service = {
 				data.passwords[params.key] = value;
 
 				// try to safe passwords
-				updatePasswordSafe(params.config, data.passwords);
+				updatePasswordSafe(params.config.dir, project, data.passwords);
 
 				// refresh cache
 				master[project] = masterPassword;
 				passwordsCache[project] = data.passwords;
 				masterHashCaches[project] = data.master;
 
-				callback(null, "Credentials saved for key " + key + ".");
+				callback(null, "Credentials saved for key " + params.key + ".");
 			});
 		}
 	},
