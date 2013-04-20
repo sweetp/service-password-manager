@@ -103,13 +103,50 @@ service = {
 	get:{
 		options: {
 			params: {
-				name: 'one'
-			}
+				key: 'one',
+				config: 'projectConfig'
+			},
+			summary:"Get user and password for 'key'."
 		},
 		fn:function(err, params, callback) {
+			var masterPassword, project;
+
 			if (err) return callback(err);
-			// get user and password for 'name'
-			return callback(null, foo(params.name));
+
+			project = params.config.name;
+			masterPassword = master[project];
+			if (!masterPassword) {
+				return callback(new Error("Not authenticated, call authenticate service method to encrypt password safe for this project."));
+			}
+
+			if (!params.key) {
+				return callback(new Error("No key given!"));
+			}
+
+			refreshPasswords(null, params.config.name, params.config.dir, function(err, data) {
+				var value;
+
+				if (err) return callback(err);
+
+				// get encrypted value
+				encryptedValue = data.passwords[params.key];
+				if (!encryptedValue) {
+					return callback(new Error("No encrypted value found for key '" + params.key + "'!"));
+				}
+
+				// generate data object
+				value = {};
+
+				if (encryptedValue.username) {
+					value.username = Crypto.AES.decrypt(encryptedValue.username, masterPassword);
+				}
+
+				if (encryptedValue.password) {
+					value.password = Crypto.AES.decrypt(encryptedValue.password, masterPassword);
+				}
+
+				callback(null, value);
+			});
 		}
 	},
 
