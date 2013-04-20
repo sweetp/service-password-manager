@@ -22,7 +22,7 @@ master = {};
 
 // cache loaded passwords from safe
 passwordsCache = {};
-masterHashCaches = {};
+masterHashCache = {};
 
 // private helper functions for service methods
 
@@ -39,10 +39,10 @@ function refreshPasswords(err, project, dir, callback) {
 	if (err) return callback(err);
 
 	// TODO check modified date from file
-	if (passwordsCache[project] && masterHashCaches[project]) {
+	if (passwordsCache[project] && masterHashCache[project]) {
 		return callback(null, {
 			passwords:passwordsCache[project],
-			master:masterHashCaches[project]
+			master:masterHashCache[project]
 		});
 	}
 
@@ -193,7 +193,7 @@ service = {
 				// refresh cache
 				master[project] = masterPassword;
 				passwordsCache[project] = data.passwords;
-				masterHashCaches[project] = data.master;
+				masterHashCache[project] = data.master;
 
 				callback(null, "Credentials saved for key " + params.key + ".");
 			});
@@ -224,7 +224,7 @@ service = {
 				// refresh cache
 				master[project] = masterPassword;
 				passwordsCache[project] = data.passwords;
-				masterHashCaches[project] = data.master;
+				masterHashCache[project] = data.master;
 
 				return callback(null, 'authenticated');
 			});
