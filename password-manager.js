@@ -12,12 +12,17 @@ var path = require('path');
  */
 var service;
 
-var methods, client, salt, passwords, master;
+var methods, client, salt, passwordsCache, master;
 
 // init
 salt = bcrypt.genSaltSync(10);
+
+// save master passwords in memory to de/encrypt passwords
 master = {};
-passwords = {};
+
+// cache loaded passwords from safe
+passwordsCache = {};
+masterHashCaches = {};
 
 // private helper functions for service methods
 
@@ -26,36 +31,55 @@ function getMasterPasswordFromUser(url) {
 	return "foobar";
 }
 
-function getDataPath(config) {
-	return path.join(config.dir, ".sweetp", "passwordSafe.json");
+function getDataPath(dir) {
+	return path.join(dir, ".sweetp", "passwordSafe.json");
 }
 
-function getDataFromFile(dataPath, callback) {
+function refreshPasswords(err, project, dir, callback) {
+	if (err) return callback(err);
+
+	// TODO check modified date from file
+	if (passwordsCache[project] && masterHashCaches[project]) {
+		return callback(null, {
+			passwords:passwordsCache[project],
+			master:masterHashCaches[project]
+		});
+	}
+
+	return getDataFromFile(null, dir, callback);
+}
+
+function getDataFromFile(err, dir, callback) {
+	if (err) return callback(err);
+
+	dataPath = getDataPath(dir);
+
 	fs.exists(dataPath, function (exists) {
 		if (!exists) {
-			throw new Error("Password file doesn't exist, call 'createStore' method to init password store in .sweetp/ directory of this project.");
+			return callback(new Error("Password file doesn't exist, call 'createStore' method to init password store in .sweetp/ directory of this project."));
 		}
+
 		fs.readFile(dataPath, function (err, fileData) {
 			if (err) {
-				throw new Error("Error occured during password file read: " + err);
+				return callback(new Error("Error occured during password file read: " + err));
 			}
-			data = JSON.parse( fileData.toString() );
+
+			data = JSON.parse(fileData.toString());
+
 			if (!data.master) {
-				throw new Error("Master password hash not found in file " + dataPath);
+				return callback(new Error("Master password hash not found in file " + dataPath));
 			}
-			masterHash = data.master;
-			// TODO finish
-			callback();
+
+			callback(null, data);
 		});
 	});
 }
 
-function updatePasswordSafe(config) {
-	var masterHash, masterPassword, passwords;
-	masterPassword = master[config.name];
+function updatePasswordSafe(dir, name, passwords) {
+	var masterHash, masterPassword;
+	masterPassword = master[name];
 	masterHash = bcrypt.hashSync(masterPassword, salt);
-	dataPath = getDataPath(config);
-	passwords = passwords[config.name];
+	dataPath = getDataPath(dir);
 	fs.writeFileSync(dataPath, JSON.stringify({master:masterHash, passwords:passwords}), 'utf-8');
 }
 
@@ -68,10 +92,11 @@ service = {
 				config: 'projectConfig'
 			}
 		},
-		fn:function(params) {
+		fn:function(err, params, callback) {
+			if (err) return callback(err);
 			master[params.config.name] = getMasterPasswordFromUser(params.url);
-			updatePasswordSafe(params.config);
-			return "Password safe created successfully.";
+			updatePasswordSafe(params.config.name, params.config.dir, {});
+			return callback(null, "Password safe created successfully.");
 		}
 	},
 
@@ -81,9 +106,10 @@ service = {
 				name: 'one'
 			}
 		},
-		fn:function(params) {
+		fn:function(err, params, callback) {
+			if (err) return callback(err);
 			// get user and password for 'name'
-			return foo(params.name);
+			return callback(null, foo(params.name));
 		}
 	},
 
@@ -96,32 +122,75 @@ service = {
 				config: 'projectConfig'
 			}
 		},
-		fn:function(params) {
-			var masterPassword;
+		fn:function(err, params, callback) {
+			var masterPassword, project;
 
-			if (!master[params.config.name]) {
-				throw new Error("Not authenticated, call authenticate service method to encrypt password safe for this project.");
+			if (err) return callback(err);
+
+			project = params.config.name;
+			masterPassword = master[project];
+			if (!masterPassword) {
+				return callback(new Error("Not authenticated, call authenticate service method to encrypt password safe for this project."));
 			}
-			masterPassword = master[params.config.name];
 
-			value = {};
-			value.username = Crypto.AES.encrypt(params.username, masterPassword);
-			value.password = Crypto.AES.encrypt(params.password, masterPassword);
+			if (!params.key) {
+				return callback(new Error("No key given!"));
+			}
 
-			passwords[params.config.name][params.key] = value;
-			updatePasswordSafe(params.config);
+			refreshPasswords(null, params.config.name, params.config.dir, function(err, data) {
+				var value;
+
+				if (err) return callback(err);
+
+				// generate data object
+				value = {};
+				value.username = Crypto.AES.encrypt(params.username, masterPassword);
+				value.password = Crypto.AES.encrypt(params.password, masterPassword);
+
+				// add it to current passwords or overwrite existing
+				data.passwords[params.key] = value;
+
+				// try to safe passwords
+				updatePasswordSafe(params.config, data.passwords);
+
+				// refresh cache
+				master[project] = masterPassword;
+				passwordsCache[project] = data.passwords;
+				masterHashCaches[project] = data.master;
+
+				callback(null, "Credentials saved for key " + key + ".");
+			});
 		}
 	},
 
 	authenticate:{
 		options: {
 			params: {
-				url: 'url'
+				url: 'url',
+				config: 'projectConfig'
 			}
 		},
-		fn:function(params) {
-			// call service to retrieve master password by user and decrypt password safe
-			return "test " + params.name;
+		fn:function(err, params, callback) {
+			if (err) return callback(err);
+			// TODO call service to retrieve master password by user and decrypt password safe
+			project = params.config.name;
+			masterPassword = getMasterPasswordFromUser();
+
+			return refreshPasswords(null, project, params.config.dir, function(err, data) {
+				if (err) return callback(err);
+				valid = bcrypt.compareSync(masterPassword, data.master);
+
+				if (!valid) {
+					return callback(new Error("Master password and hash not identical!"));
+				}
+
+				// refresh cache
+				master[project] = masterPassword;
+				passwordsCache[project] = data.passwords;
+				masterHashCaches[project] = data.master;
+
+				return callback(null, 'authenticated');
+			});
 		}
 	}
 
@@ -130,20 +199,3 @@ service = {
 // create service methods and start sweetp service (client)
 methods = sweetp.createMethods(service, '/password/manager/');
 client = sweetp.start(methods);
-
-// only used for development
-process.once('SIGUSR2', function() {
-	console.log('restarting...');
-	client.closeSocket();
-	http.get({
-		host:'localhost',
-		port:7777,
-		path:'/services/foo/password/manager/get'
-	}, function() {
-		console.log('http request finished');
-		process.kill(process.pid, 'SIGUSR2');
-	}).on('error', function(e) {
-		console.log("Got error: " + e.message);
-	});
-});
-
