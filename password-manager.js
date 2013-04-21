@@ -1,4 +1,4 @@
-var sweetp = require('./lib/sweetp');
+var sweetp = require('sweetp');
 var http = require('http');
 var Crypto = require('ezcrypto').Crypto;
 var bcrypt = require('bcrypt');
@@ -28,6 +28,7 @@ masterHashCache = {};
 
 function getMasterPasswordFromUser(url) {
 	// TODO get it with service call
+	// something like:  zenity --password --title "Enter password to unlock password safe of sweetp project NAME"
 	return "foobar";
 }
 
@@ -94,12 +95,14 @@ function updatePasswordSafe(dir, name, passwords) {
 }
 
 // public service functions
+// TODO add description object with summary, config and example texts
+// TODO also add 'returns' text for each method
 service = {
 	createSafe:{
 		options: {
 			params: {
-				url: 'url',
-				config: 'projectConfig'
+				url: sweetp.PARAMETER_TYPES.url,
+				config: sweetp.PARAMETER_TYPES.projectConfig
 			}
 		},
 		fn:function(err, params, callback) {
@@ -113,10 +116,12 @@ service = {
 	get:{
 		options: {
 			params: {
-				key: 'one',
-				config: 'projectConfig'
+				key: sweetp.PARAMETER_TYPES.one,
+				config: sweetp.PARAMETER_TYPES.projectConfig
 			},
-			summary:"Get user and password for 'key'."
+			description: {
+				summary:"Get user and password for 'key'."
+			}
 		},
 		fn:function(err, params, callback) {
 			var masterPassword, project;
@@ -163,10 +168,10 @@ service = {
 	set:{
 		options: {
 			params: {
-				key: 'one',
-				username: 'one',
-				password: 'one',
-				config: 'projectConfig'
+				key: sweetp.PARAMETER_TYPES.one,
+				username: sweetp.PARAMETER_TYPES.one,
+				password: sweetp.PARAMETER_TYPES.one,
+				config: sweetp.PARAMETER_TYPES.projectConfig
 			}
 		},
 		fn:function(err, params, callback) {
@@ -208,8 +213,8 @@ service = {
 	authenticate:{
 		options: {
 			params: {
-				url: 'url',
-				config: 'projectConfig'
+				url: sweetp.PARAMETER_TYPES.url,
+				config: sweetp.PARAMETER_TYPES.projectConfig
 			}
 		},
 		fn:function(err, params, callback) {
@@ -240,4 +245,4 @@ service = {
 
 // create service methods and start sweetp service (client)
 methods = sweetp.createMethods(service, '/password/manager/');
-client = sweetp.start(methods);
+client = sweetp.start("password-manager", methods);
