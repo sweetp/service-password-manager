@@ -23,8 +23,13 @@ ivy
 
 # sweetp
 .sweetp/cli.json
+
+# node
 node_modules
+
+# other
 sweetptest
+
+# vim
 tags
 .tern-port
-.tern-project
