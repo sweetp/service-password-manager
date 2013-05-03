@@ -26,3 +26,5 @@ ivy
 node_modules
 sweetptest
 tags
+.tern-port
+.tern-project
