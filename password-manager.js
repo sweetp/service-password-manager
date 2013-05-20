@@ -66,7 +66,6 @@ function getDataFromFile(err, dir, callback) {
 
 	fs.exists(dataPath, function (exists) {
 		if (!exists) {
-			// TODO don't throw 400
 			return callback(new Error("Password file doesn't exist, call 'createStore' method to init password store in .sweetp/ directory of this project."));
 		}
 
@@ -131,12 +130,10 @@ service = {
 			project = params.config.name;
 			masterPassword = master[project];
 			if (!masterPassword) {
-				// TODO throw 403
 				return callback(new Error("Not authenticated, call authenticate service method to encrypt password safe for this project."));
 			}
 
 			if (!params.key) {
-				// TODO throw 400
 				return callback(new Error("No key given!"));
 			}
 
@@ -148,7 +145,6 @@ service = {
 				// get encrypted value
 				encryptedValue = data.passwords[params.key];
 				if (!encryptedValue) {
-					// TODO throw 404? test if this triggers the "service not found" message
 					return callback(new Error("No encrypted value found for key '" + params.key + "'!"));
 				}
 
@@ -231,12 +227,11 @@ service = {
 				valid = bcrypt.compareSync(masterPassword, data.master);
 
 				if (!valid) {
-					// throw 401
 					return callback(new Error("Master password and hash not identical!"));
 				}
 
 				// refresh cache
-				// TODO set timeout to remove master password from memory
+				// TODO (prio2) set timeout to remove master password from memory
 				master[project] = masterPassword;
 
 
