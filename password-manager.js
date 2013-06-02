@@ -28,6 +28,7 @@ masterHashCache = {};
 function getMasterPasswordFromUser(url) {
 	// TODO get it with service call
 	// something like:  zenity --password --title "Enter password to unlock password safe of sweetp project NAME"
+    // or build one service which uses java to show simple ui thingers
 	return "foobar";
 }
 
@@ -218,7 +219,6 @@ service = {
 		},
 		fn:function(err, params, callback) {
 			if (err) return callback(err);
-			// TODO call service to retrieve master password by user and decrypt password safe
 			project = params.config.name;
 			masterPassword = getMasterPasswordFromUser();
 
@@ -230,10 +230,7 @@ service = {
 					return callback(new Error("Master password and hash not identical!"));
 				}
 
-				// refresh cache
-				// TODO (prio2) set timeout to remove master password from memory
 				master[project] = masterPassword;
-
 
 				return callback(null, 'authenticated');
 			});
