@@ -11,7 +11,8 @@ var path = require('path');
  */
 var service;
 
-var methods, client, salt, passwordsCache, master;
+var methods, client, salt, passwordsCache, master, getMasterPasswordFromUser,
+    getDataPath, refreshPasswords, getDataFromFile, updatePasswordSafe;
 
 // init
 salt = bcrypt.genSaltSync(10);
@@ -22,45 +23,59 @@ master = {};
 // cache loaded passwords from safe
 passwordsCache = {};
 masterHashCache = {};
+lastFileRead = {};
 
 // private helper functions for service methods
 
-function getMasterPasswordFromUser(url) {
+getMasterPasswordFromUser = function (url) {
 	// TODO get it with service call
 	// something like:  zenity --password --title "Enter password to unlock password safe of sweetp project NAME"
     // or build one service which uses java to show simple ui thingers
 	return "foobar";
-}
+};
 
-function getDataPath(dir) {
+getDataPath = function (dir) {
 	return path.join(dir, ".sweetp", "passwordSafe.json");
-}
+};
 
-function refreshPasswords(err, project, dir, callback) {
+refreshPasswords = function (err, project, dir, callback) {
+    var dataPath;
 	if (err) return callback(err);
 
-	// TODO check modified date from file
-	if (passwordsCache[project] && masterHashCache[project]) {
-		console.log("Return cached passwords.");
-		return callback(null, {
-			passwords:passwordsCache[project],
-			master:masterHashCache[project]
-		});
-	}
+	dataPath = getDataPath(dir);
+    return fs.stat(dataPath, function (err, stats) {
+        var useCache;
+        if (err) return callback(err);
 
-	console.log("Read passwords from file and cache it.");
-	return getDataFromFile(null, dir, function(err, data) {
-		if (err) return callback(err);
+        if (lastFileRead[project] && lastFileRead[project] > stats.mtime) {
+            useCache = true;
+        } else {
+            useCache = false;
+        }
 
-		// refresh cache
-		passwordsCache[project] = data.passwords;
-		masterHashCache[project] = data.master;
+        if (passwordsCache[project] && masterHashCache[project] && useCache) {
+            console.log("Return cached passwords.");
+            return callback(null, {
+                passwords:passwordsCache[project],
+                master:masterHashCache[project]
+            });
+        }
 
-		return callback(null, data);
-	});
-}
+        console.log("Read passwords from file and cache it.");
+        return getDataFromFile(null, dir, function(err, data) {
+            if (err) return callback(err);
 
-function getDataFromFile(err, dir, callback) {
+            // refresh cache
+            passwordsCache[project] = data.passwords;
+            masterHashCache[project] = data.master;
+            lastFileRead[project] = stats.mtime;
+
+            return callback(null, data);
+        });
+    });
+};
+
+getDataFromFile = function (err, dir, callback) {
 	if (err) return callback(err);
 
 	dataPath = getDataPath(dir);
@@ -84,15 +99,21 @@ function getDataFromFile(err, dir, callback) {
 			callback(null, data);
 		});
 	});
-}
+};
 
-function updatePasswordSafe(dir, name, passwords) {
+/**
+ * Saves current passwords to disc.
+ *
+ * ATTENTION: you must make sure that your in memory data is up to date by
+ * calling refreshPasswords before!
+ */
+updatePasswordSafe = function (dir, project, passwords) {
 	var masterHash, masterPassword;
-	masterPassword = master[name];
+	masterPassword = master[project];
 	masterHash = bcrypt.hashSync(masterPassword, salt);
 	dataPath = getDataPath(dir);
 	fs.writeFileSync(dataPath, JSON.stringify({master:masterHash, passwords:passwords}), 'utf-8');
-}
+};
 
 // public service functions
 // TODO add description object with summary, config and example texts
