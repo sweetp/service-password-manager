@@ -12,7 +12,8 @@ var path = require('path');
 var service;
 
 var methods, client, salt, passwordsCache, master, getMasterPasswordFromUser,
-    getDataPath, refreshPasswords, getDataFromFile, updatePasswordSafe;
+    getDataPath, refreshPasswords, getDataFromFile, updatePasswordSafe,
+    methodName;
 
 // init
 salt = bcrypt.genSaltSync(10);
@@ -30,7 +31,7 @@ lastFileRead = {};
 getMasterPasswordFromUser = function (url) {
 	// TODO get it with service call
 	// something like:  zenity --password --title "Enter password to unlock password safe of sweetp project NAME"
-    // or build one service which uses java to show simple ui thingers
+    // or build one service which uses java to show simple ui thingers, like a password dialog -> OS independant
 	return "foobar";
 };
 
@@ -116,15 +117,17 @@ updatePasswordSafe = function (dir, project, passwords) {
 };
 
 // public service functions
-// TODO add description object with summary, config and example texts
-// TODO also add 'returns' text for each method
 service = {
 	createSafe:{
 		options: {
 			params: {
 				url: sweetp.PARAMETER_TYPES.url,
 				config: sweetp.PARAMETER_TYPES.projectConfig
-			}
+			},
+			description: {
+				summary:"Creates a password safe file in the '.sweetp/' directory of the project."
+			},
+            returns: "Success or error message."
 		},
 		fn:function(err, params, callback) {
 			if (err) return callback(err);
@@ -142,7 +145,11 @@ service = {
 			},
 			description: {
 				summary:"Get user and password for 'key'."
-			}
+			},
+            returns: {
+                username: "The username for the specified key.",
+                password: "The password for the specified key."
+            }
 		},
 		fn:function(err, params, callback) {
 			var masterPassword, project;
@@ -193,7 +200,11 @@ service = {
 				username: sweetp.PARAMETER_TYPES.one,
 				password: sweetp.PARAMETER_TYPES.one,
 				config: sweetp.PARAMETER_TYPES.projectConfig
-			}
+			},
+			description: {
+				summary:"Set username and password for specified key in password database."
+			},
+            returns: "Success or error message."
 		},
 		fn:function(err, params, callback) {
 			var masterPassword, project;
@@ -236,7 +247,11 @@ service = {
 			params: {
 				url: sweetp.PARAMETER_TYPES.url,
 				config: sweetp.PARAMETER_TYPES.projectConfig
-			}
+			},
+			description: {
+				summary:"Authenticates user by prompting the password for the password safe of the project."
+			},
+            returns: "Success or error message."
 		},
 		fn:function(err, params, callback) {
 			if (err) return callback(err);
@@ -253,12 +268,20 @@ service = {
 
 				master[project] = masterPassword;
 
-				return callback(null, 'authenticated');
+				return callback(null, 'Authenticated');
 			});
 		}
 	}
 
 };
+
+// add config text to all methods
+for (methodName in service) {
+    if (service.hasOwnProperty(methodName)) {
+        item = service[methodName];
+        item.options.description.config = "No special config setting needed. To create a password safe, use the createSafe method of this service.";
+    }
+}
 
 // create service methods and start sweetp service (client)
 methods = sweetp.createMethods(service, '/password/manager/');
