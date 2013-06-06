@@ -1,5 +1,7 @@
 var sweetp = require('sweetp-base');
 var http = require('http');
+var urlHelper = require('url');
+var querystring = require('querystring');
 var Crypto = require('ezcrypto').Crypto;
 var bcrypt = require('bcrypt');
 var fs = require('fs');
@@ -13,7 +15,7 @@ var service;
 
 var methods, client, salt, passwordsCache, master, getMasterPasswordFromUser,
     getDataPath, refreshPasswords, getDataFromFile, updatePasswordSafe,
-    methodName;
+    methodName, getPasswortFromUser;
 
 // init
 salt = bcrypt.genSaltSync(10);
@@ -28,11 +30,52 @@ lastFileRead = {};
 
 // private helper functions for service methods
 
-getMasterPasswordFromUser = function (url) {
-	// TODO get it with service call
-	// something like:  zenity --password --title "Enter password to unlock password safe of sweetp project NAME"
-    // or build one service which uses java to show simple ui thingers, like a password dialog -> OS independant
-	return "foobar";
+getPasswortFromUser = function (url, title, message, callback) {
+    var options;
+
+    options = {};
+
+    parsed = urlHelper.parse(url);
+    options.hostname = parsed.hostname;
+    options.port = parsed.port;
+    options.protocol = parsed.protocol;
+    options.path = "/services/noproject/ui/dialog/password";
+    // add params
+    options.path += "?" + querystring.stringify({
+        title:title,
+        message:message
+    });
+
+    options.headers = {
+        'Accept':'application/json'
+    };
+
+    http.get(options, function(res) {
+        var data = '';
+
+        res.on('data', function (chunk) {
+            data += chunk;
+        });
+
+        res.on('end', function () {
+            console.log("Got response: " + res.statusCode);
+            if (res.statusCode !== 200) {
+                return callback("Got response: " + res.statusCode + " Data: " + data);
+            }
+
+            // parse json
+            console.log(data);
+            json = JSON.parse(data);
+            callback(null, json.service);
+        });
+    }).on('error', function(e) {
+        console.log("Got error: " + e.message);
+        callback(e.message);
+    });
+};
+
+getMasterPasswordFromUser = function (url, project, callback) {
+    return getPasswortFromUser(url, "Sweetp password safe", "Insert master passwort for project: '" + project + "'", callback);
 };
 
 getDataPath = function (dir) {
@@ -118,25 +161,6 @@ updatePasswordSafe = function (dir, project, passwords) {
 
 // public service functions
 service = {
-	createSafe:{
-		options: {
-			params: {
-				url: sweetp.PARAMETER_TYPES.url,
-				config: sweetp.PARAMETER_TYPES.projectConfig
-			},
-			description: {
-				summary:"Creates a password safe file in the '.sweetp/' directory of the project."
-			},
-            returns: "Success or error message."
-		},
-		fn:function(err, params, callback) {
-			if (err) return callback(err);
-			master[params.config.name] = getMasterPasswordFromUser(params.url);
-			updatePasswordSafe(params.config.name, params.config.dir, {});
-			return callback(null, "Password safe created successfully.");
-		}
-	},
-
 	get:{
 		options: {
 			params: {
@@ -196,18 +220,22 @@ service = {
 	set:{
 		options: {
 			params: {
+				url: sweetp.PARAMETER_TYPES.url,
 				key: sweetp.PARAMETER_TYPES.one,
 				username: sweetp.PARAMETER_TYPES.one,
 				password: sweetp.PARAMETER_TYPES.one,
 				config: sweetp.PARAMETER_TYPES.projectConfig
 			},
 			description: {
-				summary:"Set username and password for specified key in password database."
+				summary:"Set username and password for specified key in password database.</br></br>" +
+                    "Parameter 'password' is optional. If not provided a simple dialog is spawned to get it. " +
+                    "If called by a service, provide a UI to safely ask the user for its password. " +
+                    "When called from the user directly, you can use the dialog."
 			},
             returns: "Success or error message."
 		},
 		fn:function(err, params, callback) {
-			var masterPassword, project;
+			var masterPassword, project, password, onPassword;
 
 			if (err) return callback(err);
 
@@ -221,24 +249,75 @@ service = {
 				return callback(new Error("No key given!"));
 			}
 
-			refreshPasswords(null, params.config.name, params.config.dir, function(err, data) {
-				var value;
+			if (!params.username) {
+				return callback(new Error("No username given!"));
+			}
 
-				if (err) return callback(err);
+            onPassword = function (err, password) {
+                if (err) return callback(err);
 
-				// generate data object
-				value = {};
-				value.username = Crypto.AES.encrypt(params.username, masterPassword);
-				value.password = Crypto.AES.encrypt(params.password, masterPassword);
+                refreshPasswords(null, params.config.name, params.config.dir, function(err, data) {
+                    var value;
 
-				// add it to current passwords or overwrite existing
-				data.passwords[params.key] = value;
+                    if (err) return callback(err);
 
-				// try to safe passwords
-				updatePasswordSafe(params.config.dir, project, data.passwords);
+                    // generate data object
+                    value = {};
+                    value.username = Crypto.AES.encrypt(params.username, masterPassword);
+                    value.password = Crypto.AES.encrypt(password, masterPassword);
 
-				callback(null, "Credentials saved for key " + params.key + ".");
-			});
+                    // add it to current passwords or overwrite existing
+                    data.passwords[params.key] = value;
+
+                    // try to safe passwords
+                    updatePasswordSafe(params.config.dir, project, data.passwords);
+
+                    callback(null, "Credentials saved for key " + params.key + ".");
+                });
+            };
+
+            if (!params.password) {
+                return getPasswortFromUser(params.url, "Sweetp password safe",
+                    "Insert password for project '" + project + "' and key '" +
+                    params.key + "':", onPassword);
+            } else {
+                return onPassword(null, params.password);
+            }
+		}
+	},
+
+	createSafe:{
+		options: {
+			params: {
+				url: sweetp.PARAMETER_TYPES.url,
+				masterPassword: sweetp.PARAMETER_TYPES.one,
+				config: sweetp.PARAMETER_TYPES.projectConfig
+			},
+			description: {
+				summary:"Creates a password safe file in the '.sweetp/' directory of the project.</br></br>" +
+                    "Parameter 'masterPassword' is optional. If not provided a simple dialog is spawned to get it. " +
+                    "If called by a service, provide a UI to safely ask the user for its password. " +
+                    "When called from the user directly, you can use the dialog."
+			},
+            returns: "Success or error message."
+		},
+		fn:function(err, params, callback) {
+            var onPassword;
+			if (err) return callback(err);
+
+            onPassword = function (err, masterPassword) {
+                if (err) return callback(err);
+
+                master[params.config.name] = masterPassword;
+                updatePasswordSafe(params.config.dir, params.config.name, {});
+                return callback(null, "Password safe created successfully.");
+            };
+
+            if (params.masterPassword) {
+                onPassword(null, params.masterPassword);
+            } else {
+                return getMasterPasswordFromUser(params.url, params.config.name, onPassword);
+            }
 		}
 	},
 
@@ -246,30 +325,45 @@ service = {
 		options: {
 			params: {
 				url: sweetp.PARAMETER_TYPES.url,
+				masterPassword: sweetp.PARAMETER_TYPES.one,
 				config: sweetp.PARAMETER_TYPES.projectConfig
 			},
 			description: {
-				summary:"Authenticates user by prompting the password for the password safe of the project."
+				summary:"Authenticates user by prompting the password for the password safe of the project.</br></br>" +
+                    "Parameter 'masterPassword' is optional. If not provided a simple dialog is spawned to get it. " +
+                    "If called by a service, provide a UI to safely ask the user for its password. " +
+                    "When called from the user directly, you can use the dialog."
 			},
             returns: "Success or error message."
 		},
 		fn:function(err, params, callback) {
+            var onPassword;
+
 			if (err) return callback(err);
 			project = params.config.name;
-			masterPassword = getMasterPasswordFromUser();
 
-			return refreshPasswords(null, project, params.config.dir, function(err, data) {
-				if (err) return callback(err);
-				valid = bcrypt.compareSync(masterPassword, data.master);
+            onPassword = function (err, masterPassword) {
+                if (err) return callback(err);
 
-				if (!valid) {
-					return callback(new Error("Master password and hash not identical!"));
-				}
+                refreshPasswords(null, project, params.config.dir, function(err, data) {
+                    if (err) return callback(err);
+                    valid = bcrypt.compareSync(masterPassword, data.master);
 
-				master[project] = masterPassword;
+                    if (!valid) {
+                        return callback(new Error("Master password and hash not identical!"));
+                    }
 
-				return callback(null, 'Authenticated');
-			});
+                    master[project] = masterPassword;
+
+                    return callback(null, 'Authenticated');
+                });
+            };
+
+            if (params.masterPassword) {
+                onPassword(null, params.masterPassword);
+            } else {
+                return getMasterPasswordFromUser(params.url, params.config.name, onPassword);
+            }
 		}
 	}
 
