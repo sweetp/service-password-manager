@@ -1,8 +1,22 @@
 {
 	"name": "sweetp-password-manager",
-	"version": "0.0.1",
+	"version": "1.0.0",
 	"description": "Password management for Sweetp.",
-	"author": "Stefan Gojan <vollekannehoschi@gmail.com>",
+	"author": {
+		"name":"Stefan Gojan",
+		"email":"vollekannehoschi@gmail.com"
+	},
+    "repository":{
+        "type":"git",
+        "url":"https://github.com/sweetp/service-password-manager"
+    },
+    "keywords":[
+		"sweetp",
+		"password",
+		"security",
+		"utility"
+    ],
+    "licence":"MIT",
 	"dependencies": {
 		"bcrypt": ">=0.5",
 		"ezcrypto":"~0.0.3",
