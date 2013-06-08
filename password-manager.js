@@ -1,7 +1,4 @@
 var sweetp = require('sweetp-base');
-var http = require('http');
-var urlHelper = require('url');
-var querystring = require('querystring');
 var Crypto = require('ezcrypto').Crypto;
 var bcrypt = require('bcrypt');
 var fs = require('fs');
@@ -31,47 +28,13 @@ lastFileRead = {};
 // private helper functions for service methods
 
 getPasswortFromUser = function (url, title, message, callback) {
-    var options;
+    var params;
 
-    options = {};
-
-    parsed = urlHelper.parse(url);
-    options.hostname = parsed.hostname;
-    options.port = parsed.port;
-    options.protocol = parsed.protocol;
-    options.path = "/services/noproject/ui/dialog/password";
-    // add params
-    options.path += "?" + querystring.stringify({
+    params = {
         title:title,
         message:message
-    });
-
-    options.headers = {
-        'Accept':'application/json'
     };
-
-    http.get(options, function(res) {
-        var data = '';
-
-        res.on('data', function (chunk) {
-            data += chunk;
-        });
-
-        res.on('end', function () {
-            console.log("Got response: " + res.statusCode);
-            if (res.statusCode !== 200) {
-                return callback("Got response: " + res.statusCode + " Data: " + data);
-            }
-
-            // parse json
-            console.log(data);
-            json = JSON.parse(data);
-            callback(null, json.service);
-        });
-    }).on('error', function(e) {
-        console.log("Got error: " + e.message);
-        callback(e.message);
-    });
+    sweetp.callService(url, "noproject", "ui/dialog/password", params, false, callback);
 };
 
 getMasterPasswordFromUser = function (url, project, callback) {
