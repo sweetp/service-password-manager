@@ -1,5 +1,7 @@
 # Description
 
+[![NPM version](https://badge.fury.io/js/sweetp-password-manager.png)](http://badge.fury.io/js/sweetp-password-manager)
+
 This services can manage passwords in a simple way, accessable by other
 services. The password are stored encrypted in a json file in the `.sweetp`
 directory. The main purpose of this service is to prevent the storage of clear
