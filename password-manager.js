@@ -219,6 +219,10 @@ service = {
             onPassword = function (err, password) {
                 if (err) return callback(err);
 
+                if (masterPassword === null) {
+                    return callback(new Error("No master password."));
+                }
+
                 refreshPasswords(null, params.config.name, params.config.dir, function(err, data) {
                     var value;
 
@@ -233,9 +237,13 @@ service = {
                     data.passwords[params.key] = value;
 
                     // try to safe passwords
-                    updatePasswordSafe(params.config.dir, project, data.passwords);
+                    try {
+                        updatePasswordSafe(params.config.dir, project, data.passwords);
+                    } catch (e) {
+                        return callback(e);
+                    }
 
-                    callback(null, "Credentials saved for key " + params.key + ".");
+                    return callback(null, "Credentials saved for key " + params.key + ".");
                 });
             };
 
@@ -271,8 +279,16 @@ service = {
             onPassword = function (err, masterPassword) {
                 if (err) return callback(err);
 
+                if (masterPassword === null) {
+                    return callback(new Error("No master password."));
+                }
+
                 master[params.config.name] = masterPassword;
-                updatePasswordSafe(params.config.dir, params.config.name, {});
+                try {
+                    updatePasswordSafe(params.config.dir, params.config.name, {});
+                } catch (e) {
+                    return callback(e);
+                }
                 return callback(null, "Password safe created successfully.");
             };
 
@@ -308,9 +324,18 @@ service = {
             onPassword = function (err, masterPassword) {
                 if (err) return callback(err);
 
+                if (masterPassword === null) {
+                    return callback(new Error("No master password."));
+                }
+
                 refreshPasswords(null, project, params.config.dir, function(err, data) {
                     if (err) return callback(err);
-                    valid = bcrypt.compareSync(masterPassword, data.master);
+
+                    try {
+                        valid = bcrypt.compareSync(masterPassword, data.master);
+                    } catch (e) {
+                        return callback(e);
+                    }
 
                     if (!valid) {
                         return callback(new Error("Master password and hash not identical!"));
