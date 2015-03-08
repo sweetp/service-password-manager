@@ -3,6 +3,7 @@ var Crypto = require('ezcrypto').Crypto;
 var bcrypt = require('bcrypt');
 var fs = require('fs');
 var path = require('path');
+var log = require('sweetp-base/lib/log')('password-manager:internal:');
 
 /**
  * {Object} service methods with sweetp meta data
@@ -61,14 +62,14 @@ refreshPasswords = function (err, project, dir, callback) {
         }
 
         if (passwordsCache[project] && masterHashCache[project] && useCache) {
-            console.log("Return cached passwords.");
+            log.info("Return cached passwords.");
             return callback(null, {
                 passwords:passwordsCache[project],
                 master:masterHashCache[project]
             });
         }
 
-        console.log("Read passwords from file and cache it.");
+        log.info("Read passwords from file and cache it.");
         return getDataFromFile(null, dir, function(err, data) {
             if (err) return callback(err);
 
@@ -138,10 +139,8 @@ service = {
                 password: "The password for the specified key."
             }
 		},
-		fn:function(err, params, callback) {
+		fn:function(params, callback) {
 			var masterPassword, project;
-
-			if (err) return callback(err);
 
 			project = params.config.name;
 			masterPassword = master[project];
@@ -197,10 +196,8 @@ service = {
 			},
             returns: "Success or error message."
 		},
-		fn:function(err, params, callback) {
+		fn:function(params, callback) {
 			var masterPassword, project, password, onPassword;
-
-			if (err) return callback(err);
 
 			project = params.config.name;
 			masterPassword = master[project];
@@ -272,9 +269,8 @@ service = {
 			},
             returns: "Success or error message."
 		},
-		fn:function(err, params, callback) {
+		fn:function(params, callback) {
             var onPassword;
-			if (err) return callback(err);
 
             onPassword = function (err, masterPassword) {
                 if (err) return callback(err);
@@ -315,10 +311,9 @@ service = {
 			},
             returns: "Success or error message."
 		},
-		fn:function(err, params, callback) {
+		fn:function(params, callback) {
             var onPassword;
 
-			if (err) return callback(err);
 			project = params.config.name;
 
             onPassword = function (err, masterPassword) {
